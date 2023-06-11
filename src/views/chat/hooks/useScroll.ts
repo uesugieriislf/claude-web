@@ -35,11 +35,7 @@ export function useScroll(): ScrollReturn {
       const threshold = 100 // 阈值，表示滚动条到底部的距离阈值
       const distanceToBottom = scrollRef.value.scrollHeight - scrollRef.value.scrollTop - scrollRef.value.clientHeight
 
-      console.log('distanceToBottom', distanceToBottom)
-      console.log('sheight', scrollRef.value.scrollHeight)
-      console.log('stop', scrollRef.value.scrollTop)
-      console.log('ch', scrollRef.value.clientHeight)
-
+      // 为啥原来的写法是小与？实际效果反而是大于
       if (distanceToBottom >= threshold)
         scrollRef.value.scrollTop = scrollRef.value.scrollHeight
     }
