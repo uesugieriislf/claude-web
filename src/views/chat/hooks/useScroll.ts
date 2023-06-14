@@ -29,10 +29,11 @@ export function useScroll(): ScrollReturn {
     await nextTick()
 
     if (scrollRef.value) {
-      const threshold = 100 // 阈值，表示滚动条到底部的距离阈值
+      const threshold = 50 // 阈值，表示滚动条到底部的距离阈值
       const distanceToBottom = scrollRef.value.scrollHeight - scrollRef.value.scrollTop - scrollRef.value.clientHeight
 
       // 为啥原来的写法是小与？实际效果反而是大于
+      // 到底部的距离大于阈值后出发滚动，所以阈值应该小一些，这样子滚动比较及时
       if (distanceToBottom >= threshold)
         scrollRef.value.scrollTop = scrollRef.value.scrollHeight
     }
