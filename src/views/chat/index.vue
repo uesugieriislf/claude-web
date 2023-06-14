@@ -47,6 +47,7 @@ const promptStore = usePromptStore()
 const { promptList: promptTemplate } = storeToRefs<any>(promptStore)
 
 let textIndex = 0
+let textIndexCache = 0
 let dataBuffer = {}
 let interval: any
 let finished = false
@@ -144,12 +145,23 @@ async function onConversation() {
                     console.log('old', oldText)
                     // 更新会话状态为完成
                     updateChatSome(+uuid, dataSources.value.length - 1, { loading: false })
+                    finished = false
+                    console.log('type done!', finished)
+                  }
+                  else {
+                    textIndexCache = textIndex
                   }
                 }
                 else {
+                  if (textIndexCache) {
+                    oldText = oldText.slice(0, oldText.length - 3)
+                    textIndex -= 2
+                  }
+
+                  textIndexCache = 0
                   // 逐字输出
                   const renderStr = renderText.slice(textIndex, textIndex + 1)
-                  // console.log('index-%s--renderT-%s', textIndex, renderStr)
+                  console.log('index-%s--renderT-%s', textIndex, renderStr)
 
                   oldText += renderStr
 
