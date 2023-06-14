@@ -22,6 +22,25 @@ const { isMobile } = useBasicLayout()
 
 const textRef = ref<HTMLElement>()
 
+/**
+ * @function unescapeHTML 还原html脚本 < > & " '
+ * @param a -
+ *            字符串
+ */
+function html_decode(str: string) {
+  let s = ''
+  if (str.length === 0)
+    return ''
+  s = str.replace(/&amp;/g, '&')
+  s = s.replace(/&lt;/g, '<')
+  s = s.replace(/&gt;/g, '>')
+  s = s.replace(/&nbsp;/g, ' ')
+  s = s.replace(/&#39;/g, '\'')
+  s = s.replace(/&quot;/g, '"')
+  s = s.replace(/<br\/>/g, '\n')
+  return s
+}
+
 const mdi = new MarkdownIt({
   html: false,
   linkify: true,
@@ -29,9 +48,12 @@ const mdi = new MarkdownIt({
     const validLang = !!(language && hljs.getLanguage(language))
     if (validLang) {
       const lang = language ?? ''
-      return highlightBlock(hljs.highlight(code, { language: lang }).value, lang)
+
+      // 因为接口的内容都是转义过的，所以需要反转义一遍，再给highlight转义，这样子才不会出问题
+      // 转义是为了防止xss攻击
+      return highlightBlock(hljs.highlight(html_decode(code), { language: lang }).value, lang)
     }
-    return highlightBlock(hljs.highlightAuto(code).value, '')
+    return highlightBlock(hljs.highlightAuto(html_decode(code)).value, '')
   },
 })
 
@@ -85,7 +107,7 @@ function removeCopyEvents() {
   if (textRef.value) {
     const copyBtn = textRef.value.querySelectorAll('.code-block-header__copy')
     copyBtn.forEach((btn) => {
-      btn.removeEventListener('click', () => {})
+      btn.removeEventListener('click', () => { })
     })
   }
 }

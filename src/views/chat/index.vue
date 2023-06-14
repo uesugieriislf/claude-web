@@ -46,6 +46,11 @@ const promptStore = usePromptStore()
 // 使用storeToRefs，保证store修改后，联想部分能够重新渲染
 const { promptList: promptTemplate } = storeToRefs<any>(promptStore)
 
+let textIndex = 0
+let dataBuffer = {}
+let interval: any
+let finished = false
+
 // 未知原因刷新页面，loading 状态不会重置，手动重置
 dataSources.value.forEach((item, index) => {
   if (item.loading)
@@ -66,13 +71,13 @@ async function onConversation() {
     return
 
   controller = new AbortController()
-
+  // 在页面展示用户提问信息
   addChat(
     +uuid,
     {
       dateTime: new Date().toLocaleString(),
       text: message,
-      inversion: true,
+      inversion: true, // 文本渲染位置
       error: false,
       conversationOptions: null,
       requestOptions: { prompt: message, options: null },
@@ -105,8 +110,10 @@ async function onConversation() {
 
   try {
     let lastText = ''
+    let oldText = ''
+    // 定义获取答案的方法，然后调用
     const fetchChatAPIOnce = async () => {
-      console.log('aaaa')
+      // console.log('aaaa')
 
       await fetchChatAPIProcess<Chat.ConversationResponse>({
         prompt: message,
@@ -115,43 +122,67 @@ async function onConversation() {
         onDownloadProgress: ({ event }) => {
           const xhr = event.target
           const { responseText } = xhr
-          console.log('responseText0000000000', responseText)
+          // console.log('responseText0000000000', responseText)
 
           // Always process the final line
           const lastIndex = responseText.lastIndexOf('\n', responseText.length - 2)
-          console.log('lastIndex', lastIndex)
+          // console.log('lastIndex', lastIndex)
 
           let chunk = responseText
           if (lastIndex !== -1)
             chunk = responseText.substring(lastIndex)
           try {
             const data = JSON.parse(chunk)
-            console.log('data', data)
+            // console.log('text', JSON.stringify(data.text))
+            // console.log('lasttext', lastText)
+            dataBuffer = data
+            if (textIndex === 0) {
+              interval = setInterval(() => {
+                const renderText = lastText + (dataBuffer.text ?? '')
+                if (textIndex >= renderText.length) {
+                  console.log('finished', finished)
 
-            updateChat(
-              +uuid,
-              dataSources.value.length - 1,
-              {
-                dateTime: new Date().toLocaleString(),
-                text: lastText + (data.text ?? ''),
-                inversion: false,
-                error: false,
-                loading: true,
-                conversationOptions: { conversationId: data.conversationId, parentMessageId: data.id },
-                requestOptions: { prompt: message, options: { ...options } },
-              },
-            )
-            // console.log(222)
+                  if (finished) {
+                    clearInterval(interval)
+                    textIndex = 0
+                    console.log('old', oldText)
+                    updateChatSome(+uuid, dataSources.value.length - 1, { loading: false })
+                  }
+                }
+                else {
+                  const renderStr = renderText.slice(textIndex, textIndex + 1)
+                  // console.log('index-%s--renderT-%s', textIndex, renderStr)
 
-            if (openLongReply && data.detail.choices[0].finish_reason === 'length') {
-              options.parentMessageId = data.id
-              lastText = data.text
-              message = ''
-              return fetchChatAPIOnce()
+                  oldText += renderStr
+
+                  updateChat(
+                    +uuid,
+                    dataSources.value.length - 1,
+                    {
+                      dateTime: new Date().toLocaleString(),
+                      text: oldText,
+                      inversion: false,
+                      error: false,
+                      loading: true,
+                      conversationOptions: { conversationId: data.conversationId, parentMessageId: data.id },
+                      requestOptions: { prompt: message, options: { ...options } },
+                    },
+                  )
+                  // console.log(222)
+
+                  if (openLongReply && data.detail.choices[0].finish_reason === 'length') {
+                    options.parentMessageId = data.id
+                    lastText = data.text
+                    message = ''
+                    return fetchChatAPIOnce()
+                  }
+                  // console.log(333)
+                  textIndex++
+                  scrollToBottomIfAtBottom()
+                }
+              }, 50)
             }
-            // console.log(333)
 
-            scrollToBottomIfAtBottom()
             console.log(3444)
           }
           catch (error) {
@@ -161,11 +192,15 @@ async function onConversation() {
         },
       })
       updateChatSome(+uuid, dataSources.value.length - 1, { loading: false })
+      finished = true
+      console.log('data done!', finished)
     }
 
     await fetchChatAPIOnce()
   }
   catch (error: any) {
+    console.log('error', error)
+
     const errorMessage = error?.message ?? t('common.wrong')
 
     if (error.message === 'canceled') {
@@ -481,19 +516,12 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col w-full h-full">
-    <HeaderComponent
-      v-if="isMobile"
-      :using-context="usingContext"
-      @export="handleExport"
-      @toggle-using-context="toggleUsingContext"
-    />
+    <HeaderComponent v-if="isMobile" :using-context="usingContext" @export="handleExport"
+      @toggle-using-context="toggleUsingContext" />
     <main class="flex-1 overflow-hidden">
       <div id="scrollRef" ref="scrollRef" class="h-full overflow-hidden overflow-y-auto">
-        <div
-          id="image-wrapper"
-          class="w-full max-w-screen-xl m-auto dark:bg-[#101014]"
-          :class="[isMobile ? 'p-2' : 'p-4']"
-        >
+        <div id="image-wrapper" class="w-full max-w-screen-xl m-auto dark:bg-[#101014]"
+          :class="[isMobile ? 'p-2' : 'p-4']">
           <template v-if="!dataSources.length">
             <div class="flex items-center justify-center mt-4 text-center text-neutral-300">
               <SvgIcon icon="ri:bubble-chart-fill" class="mr-2 text-3xl" />
@@ -502,17 +530,9 @@ onUnmounted(() => {
           </template>
           <template v-else>
             <div>
-              <Message
-                v-for="(item, index) of dataSources"
-                :key="index"
-                :date-time="item.dateTime"
-                :text="item.text"
-                :inversion="item.inversion"
-                :error="item.error"
-                :loading="item.loading"
-                @regenerate="onRegenerate(index)"
-                @delete="handleDelete(index)"
-              />
+              <Message v-for="(item, index) of dataSources" :key="index" :date-time="item.dateTime" :text="item.text"
+                :inversion="item.inversion" :error="item.error" :loading="item.loading" @regenerate="onRegenerate(index)"
+                @delete="handleDelete(index)" />
               <div class="sticky bottom-0 left-0 flex justify-center">
                 <NButton v-if="loading" type="warning" @click="handleStop">
                   <template #icon>
@@ -546,17 +566,9 @@ onUnmounted(() => {
           </HoverButton>
           <NAutoComplete v-model:value="prompt" :options="searchOptions" :render-label="renderOption">
             <template #default="{ handleInput, handleBlur, handleFocus }">
-              <NInput
-                ref="inputRef"
-                v-model:value="prompt"
-                type="textarea"
-                :placeholder="placeholder"
-                :autosize="{ minRows: 1, maxRows: isMobile ? 4 : 8 }"
-                @input="handleInput"
-                @focus="handleFocus"
-                @blur="handleBlur"
-                @keypress="handleEnter"
-              />
+              <NInput ref="inputRef" v-model:value="prompt" type="textarea" :placeholder="placeholder"
+                :autosize="{ minRows: 1, maxRows: isMobile ? 4 : 8 }" @input="handleInput" @focus="handleFocus"
+                @blur="handleBlur" @keypress="handleEnter" />
             </template>
           </NAutoComplete>
           <NButton type="primary" :disabled="buttonDisabled" @click="handleSubmit">

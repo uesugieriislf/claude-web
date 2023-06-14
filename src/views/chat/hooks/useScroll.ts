@@ -26,10 +26,7 @@ export function useScroll(): ScrollReturn {
   }
 
   const scrollToBottomIfAtBottom = async () => {
-    console.log(111)
-
     await nextTick()
-    console.log(scrollRef.value)
 
     if (scrollRef.value) {
       const threshold = 100 // 阈值，表示滚动条到底部的距离阈值
