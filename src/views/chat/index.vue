@@ -122,34 +122,32 @@ async function onConversation() {
         onDownloadProgress: ({ event }) => {
           const xhr = event.target
           const { responseText } = xhr
-          // console.log('responseText0000000000', responseText)
-
           // Always process the final line
           const lastIndex = responseText.lastIndexOf('\n', responseText.length - 2)
-          // console.log('lastIndex', lastIndex)
-
           let chunk = responseText
           if (lastIndex !== -1)
             chunk = responseText.substring(lastIndex)
           try {
             const data = JSON.parse(chunk)
-            // console.log('text', JSON.stringify(data.text))
-            // console.log('lasttext', lastText)
             dataBuffer = data
             if (textIndex === 0) {
+              // 新增打字机展示效果，对接受到的buffer进行逐字输出
               interval = setInterval(() => {
                 const renderText = lastText + (dataBuffer.text ?? '')
+                //
                 if (textIndex >= renderText.length) {
                   console.log('finished', finished)
-
+                  // 当数据传输完成，关闭定时器
                   if (finished) {
                     clearInterval(interval)
                     textIndex = 0
                     console.log('old', oldText)
+                    // 更新会话状态为完成
                     updateChatSome(+uuid, dataSources.value.length - 1, { loading: false })
                   }
                 }
                 else {
+                  // 逐字输出
                   const renderStr = renderText.slice(textIndex, textIndex + 1)
                   // console.log('index-%s--renderT-%s', textIndex, renderStr)
 
@@ -168,7 +166,6 @@ async function onConversation() {
                       requestOptions: { prompt: message, options: { ...options } },
                     },
                   )
-                  // console.log(222)
 
                   if (openLongReply && data.detail.choices[0].finish_reason === 'length') {
                     options.parentMessageId = data.id
@@ -176,14 +173,11 @@ async function onConversation() {
                     message = ''
                     return fetchChatAPIOnce()
                   }
-                  // console.log(333)
                   textIndex++
                   scrollToBottomIfAtBottom()
                 }
               }, 50)
             }
-
-            console.log(3444)
           }
           catch (error) {
             //
