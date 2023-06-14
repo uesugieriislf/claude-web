@@ -161,7 +161,7 @@ async function onConversation() {
                   textIndexCache = 0
                   // 逐字输出
                   const renderStr = renderText.slice(textIndex, textIndex + 1)
-                  console.log('index-%s--renderT-%s', textIndex, renderStr)
+                  // console.log('index-%s--renderT-%s', textIndex, renderStr)
 
                   oldText += renderStr
 
